@@ -58,30 +58,34 @@ Refreshed the page, Normal (range 1-100)
 
 ## 2. How did you use AI as a teammate?
 
-- Which AI tools did you use on this project (for example: ChatGPT, Gemini, Copilot)?
-- Give one example of an AI suggestion that was correct (including what the AI suggested and how you verified the result).
-- Give one example of an AI suggestion you did not accept as written (including what the AI suggested, why you rejected or changed it, and how you verified your version). It does not have to be a suggestion that was wrong: over-engineered, out of scope, harder to read, or a poor fit for this codebase all count.
+I used Claude (in the Claude Code app) for this whole project. I'd describe what I saw while playing, and it helped me figure out what was actually a bug versus my computer (like the DLL error), explained the code behind each bug, made the fixes, and wrote tests.
+
+**A correct AI suggestion:** I didn't understand why the hints seemed random, since 1500 said "Go LOWER" but 850 said "Go HIGHER" with a secret of 90. Claude explained that on every even attempt `app.py` turned the secret into text with `str(st.session_state.secret)`, so "1500" vs "90" got compared like words ("1" comes before "9"), and that the hint messages were also swapped. Its fix was to always compare real numbers in `check_guess` and fix the messages. I checked it with the new tests (`test_too_high_hint_says_go_lower` and `test_big_guess_compared_as_number_not_text`, which both pass) and by playing again on Normal with a secret of 60. Every hint pointed the right way, and 56 correctly said "Go HIGHER!"
+
+**A suggestion I didn't accept as written:** Before asking for help with the New Game bug, I fixed it myself by adding `st.session_state.status = "playing"` to the New Game button. That stopped the "Game over" loop, but when Claude looked at it, it pointed out that my version was only a partial fix because the score and history still carried over from the last game (my new game had started at -20 with my old guesses still listed). So I didn't keep my fix or the original code as written. It got turned into a `reset_game()` function in `logic_utils.py` that resets attempts, secret, score, status, and history, and uses the difficulty's range. I verified it with `test_reset_game_starts_a_fresh_game_after_losing` and by losing a game and clicking New Game, which reset my score to 0 and let me keep playing.
+
+The AI also made a mistake I had to watch for: its first edit deleted `import random` from `app.py` even though the code still used it to pick the secret. It was caught by searching the file before running the game and put back, which showed me I can't assume an AI edit is right just because it looks clean.
 
 ---
 
 ## 3. Debugging and testing your fixes
 
-- How did you decide whether a bug was really fixed?
-- Describe at least one test you ran (manual or using pytest)  
-  and what it showed you about your code.
-- Did AI help you design or understand any tests? How?
+I decided a bug was really fixed when two things were true: a pytest test for that exact case passed, and the live game acted right when I played it. I ran `pytest` and all 7 tests passed (the 3 starter tests plus 4 new ones for my two bugs). One test checks that a guess of 100 with a secret of 90 returns "Too High" and the hint says "Go LOWER", which is the exact input that was broken when I started. Another test sets the game to "lost" with a score of -45 and old history, calls `reset_game`, and checks that status is "playing", score is 0, and history is empty. Claude wrote the tests using the same inputs from my Bug Reproduction Log, so the tests prove the exact bugs I documented are gone.
+
+Playing the fixed game also showed me which bugs are still there. On Normal I ran out of attempts after 7 guesses instead of 8, and a guess of 0 was accepted even though the range is 1 to 100. Those are bugs #4/#8 and #6 from my list, which I didn't fix in this round, so they're not new problems.
 
 ---
 
 ## 4. What did you learn about Streamlit and state?
 
-- How would you explain Streamlit "reruns" and session state to a friend who has never used Streamlit?
+Streamlit reruns the whole `app.py` file from top to bottom every time you do anything, like clicking a button or pressing Enter in the textbox (which is why the box says "Press Enter to apply," but that doesn't submit your guess). Normal variables get wiped on every rerun, so anything the game needs to remember, like the secret, score, attempts, and history, has to go in `st.session_state`, which is like the game's memory between reruns. That's also why bugs stick around: when New Game didn't reset `status` or `score`, the old values stayed in session state, so the game kept saying "Game over" and my score started at -20. Refreshing the browser page clears session state completely, which is how I got unstuck. The order also matters, because the Debug panel is drawn before the guess is processed, so it always showed the score one step behind.
 
 ---
 
 ## 5. Looking ahead: your developer habits
 
-- What is one habit or strategy from this project that you want to reuse in future labs or projects?
-  - This could be a testing habit, a prompting strategy, or a way you used Git.
-- What is one thing you would do differently next time you work with AI on a coding task?
-- In one or two sentences, describe how this project changed the way you think about AI generated code.
+One habit I want to keep is writing a Bug Reproduction Log with the exact input, expected, and actual result, and then using those same inputs as my tests. It made it really clear whether something was fixed. I also want to keep using the Debug panel (or print statements) to compare what the code thinks with what the screen shows.
+
+Next time I would read the code myself first and try to understand what each function does before asking AI to fix it. A lot of what was confusing to me (like what "secret" meant or why the hints flipped) would have made more sense if I'd read `check_guess` first.
+
+This project showed me that AI-generated code can look finished and still be wrong in ways you only catch by actually testing it, and that even the AI fixing the bugs can make mistakes, so I have to check its work too.
